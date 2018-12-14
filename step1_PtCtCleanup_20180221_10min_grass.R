@@ -32,6 +32,7 @@ source(here("WesternPA_Density_Functions.R"))
 ## @@@@ USER INPUT REQUIRED HERE @@@@
 # define the path to where your input and output data files are stored
 filedirectory <- "grassland_data2018"
+projectName <- "grassland2018"
 
 ##############################################################################################
 ## read in data and calculate covariates (Jdate, time since local sunrise) 
@@ -56,7 +57,6 @@ for (i in 1:nrow(rawdat)){
 
 # convert start time to decimal time
 rawdat$starttime <- as.numeric(substr(rawdat$time_start, 0, nchar(rawdat$time_start)-2)) + as.numeric(substr(rawdat$time_start, nchar(rawdat$time_start)-1, nchar(rawdat$time_start)))/60
-
 # calculate time since local sunrise
 rawdat$tslr <- rawdat$starttime - rawdat$Sunrise
 
@@ -73,7 +73,7 @@ UniqPtsVisits <- unique(rawdat$unique_id)
 rawdat <- subset(rawdat, tot_sing>0 )
 
 # check to see if any records still have missing distances, remove if they still exist
-rawdat[which(is.na(rawdat$distance)),]
+print(paste0("There are ",nrow(rawdat[which(is.na(rawdat$distance)),])," records with missing distances. They will be deleted"))
 rawdat <- rawdat[which(!is.na(rawdat$distance)),]
 
 # get species list. check for entry errors (including use of lowercase letters), unidentified species
@@ -82,21 +82,10 @@ speclist <- unique(rawdat$elem_name)
 # replace any lowercase letters in elem_name field with uppercase
 rawdat$elem_name <- toupper(rawdat$elem_name)
 
-# remove records of unidentified bird (UNBI), unidentified woodpecker (UNWO)
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNBI")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNWO")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNFL")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNWA")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNCH")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNDU")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNRA")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNHU")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNSP")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNSW")),]
-rawdat <- rawdat[which(!(rawdat$elem_name=="UNTH")),]
+# remove records of unidentified bird (UNBI), unidentified woodpecker (UNWO), unidentifed thrush (UNTH), any element name beginning with "UN"
+rawdat <- rawdat[which(!(substr(rawdat$elem_name,1,2)=="UN")),]
 rawdat$elem_name <- factor(rawdat$elem_name) # reset the factor list
 speclist <- unique(rawdat$elem_name) # get HESPsed speclist
-
 
 # add uniqueID field (unique by pt, spp, survey visit)
 rawdat$uniqueID <- paste(rawdat$pt_id, rawdat$survey_vis, rawdat$elem_name, sep=".")
