@@ -32,7 +32,13 @@ source(here("WesternPA_Density_Functions.R"))
 ## @@@@ USER INPUT REQUIRED HERE @@@@
 # define the path to where your input and output data files are stored
 filedirectory <- "grassland_data2018"
-projectName <- "grassland2018"
+projectName <- "grass2018"
+
+# set intervals for ptct surveys
+int5cat2 <- c("sing3","nosing3","sing5","nosing5")
+int5cat5 <- c("sing1","nosing1","sing2","nosing2","sing3","nosing3","sing4","nosing4","sing5","nosing5")
+int10cat3 < c()
+int10cat6 <- c()
 
 ##############################################################################################
 ## read in data and calculate covariates (Jdate, time since local sunrise) 
@@ -60,6 +66,10 @@ rawdat$starttime <- as.numeric(substr(rawdat$time_start, 0, nchar(rawdat$time_st
 # calculate time since local sunrise
 rawdat$tslr <- rawdat$starttime - rawdat$Sunrise
 
+vegdata <- rawdat[c("pt_id","veg_surveyor","veg_date","grass_type","road","trail","invasive","soil_dist","equip_track","atv","mow","disc","fire","grass_cov","shrub_cov","bare_cov","grass_ht","shrub_ht","grass_pat","shrub_pat","bare_pat","comm_veg","cum_disturb")]
+vegdata <- unique(vegdata)
+
+rawdat <- rawdat[,!names(rawdat) %in% c("veg_surveyor","veg_date","grass_type","road","trail","invasive","soil_dist","equip_track","atv","mow","disc","fire","grass_cov","shrub_cov","bare_cov","grass_ht","shrub_ht","grass_pat","shrub_pat","bare_pat","comm_veg","cum_disturb")]
 
 ##############################################################################################
 ## clean the data, remove unidentified species, keep only the survey visit with the highest count,
@@ -96,7 +106,7 @@ colnames(ptctTot) <- c("uniqueID", "TotSing")
 rawdat2 <- merge(ptctTot, rawdat, by.x=c("uniqueID"), by.y=c("uniqueID"))
 
 # write cleaned file to csv
-write.csv(rawdat2, file=paste(pathtofiles,"grasslands2018_JDate_TSLR_Cleaned_BothVisits.csv", sep=""))
+write.csv(rawdat2, file=paste(filedirectory,paste(projectName,"JDate_TSLR_Cleaned_BothVisits.csv", sep="_"),sep="/" ), row.names=FALSE)
 
 # scroll through by point, keep only the data from the survey visit with the highest counts
 rawdat2$specpt <- paste(rawdat2$elem_name, rawdat2$pt_id, sep=".") # add field with unique combo of species and point
@@ -134,20 +144,22 @@ for (s in speclist){
 # merge with rawdat to fill in other columns
 # Use c(1,3:15,19,21,23:125)] for 10min surveys, Use c(1,3:15,19,21:125)] for 5min surveys
 # Use c(1:13,17,19,21:23,25:32) for peatlands
-zerodat <- merge(zeropts, rawdatsv[!duplicated(rawdatsv$pt_id),c("pt_id","uniqueID","TotSing","OBJECTID","spec_pt","site_name","survey_yr","survey_vis","unique_id","date_start","time_start","sky","wind","temp","surveyors","nosing1","nosing2","nosing3","nosing4","nosing5","outside","tot_all","breed_code","comm_bird","All_detections","veg_surveyor","veg_date","grass_type","road","trail","invasive","soil_dist","equip_track","atv","mow","disc","fire","grass_cov","shrub_cov","bare_cov","grass_ht","shrub_ht","grass_pat","shrub_pat","bare_pat","comm_veg","cum_disturb","X","Y","Jdate","Sunrise","starttime","tslr")], by.x="pt_id", by.y="pt_id",all.x=T, all.y=F) #c(1,3:17,19,21,23,25,27:62)
+zerodat <- merge(zeropts, rawdatsv[c("pt_id",setdiff(names(rawdatsv),names(zeropts)))], by.x=c("pt_id"), by.y=c("pt_id"),all.x=TRUE, all.y=FALSE)
 
-write.csv(rawdatsv, file=paste(pathtofiles,"grasslands2018_rawdatsv.csv", sep=""))
-write.csv(zeropts, file=paste(pathtofiles,"grasslands2018_zeropts.csv", sep=""))
-write.csv(zerodat, file=paste(pathtofiles,"grasslands2018_zerodat.csv", sep=""))
+# write out some backup files
+write.csv(rawdatsv, file=paste(filedirectory,paste(projectName,"rawdatsv.csv", sep="_"),sep="/" ), row.names=FALSE)
+write.csv(zeropts, file=paste(filedirectory,paste(projectName,"zeropts.csv", sep="_"),sep="/" ), row.names=FALSE)
+write.csv(zerodat, file=paste(filedirectory,paste(projectName,"zerodat.csv", sep="_"),sep="/" ), row.names=FALSE)
 
-zerodat <- zerodat[c("uniqueID","TotSing","OBJECTID","spec_pt","site_name","pt_id","survey_yr","survey_vis","unique_id","date_start","time_start","sky","wind","temp","surveyors","elem_name","distance","sing1","nosing1","sing2","nosing2","sing3","nosing3","sing4","nosing4","sing5","nosing5","outside","tot_all","tot_sing","breed_code","comm_bird","All_detections","veg_surveyor","veg_date","grass_type","road","trail","invasive","soil_dist","equip_track","atv","mow","disc","fire","grass_cov","shrub_cov","bare_cov","grass_ht","shrub_ht","grass_pat","shrub_pat","bare_pat","comm_veg","cum_disturb","X","Y","Jdate","Sunrise","starttime","tslr","specpt"  )]
+# rearrange to proper order
+zerodat <- zerodat[names(rawdatsv)] 
 
 # combine zero data with count data
 cleandat <- rbind(rawdatsv, zerodat)
 cleandat$uniqueID <- NULL
 
 # write compiled, cleaned file to csv
-write.csv(cleandat, file=paste(pathtofiles,"grasslands2018_JDate_TSLR_Cleaned_Zeros_10min.csv", sep=""))
+write.csv(cleandat, file=paste(filedirectory,paste(projectName,"_JDate_TSLR_Cleaned_Zeros_5min.csv", sep="_"),sep="/" ), row.names=FALSE)
 
 
 
@@ -162,7 +174,7 @@ write.csv(cleandat, file=paste(pathtofiles,"grasslands2018_JDate_TSLR_Cleaned_Ze
 
 # create total count dataset for GLMM with a single record for each point (remove extra distance bands)
 ptctTot <- cleandat[!(duplicated(cleandat$specpt)),]
-write.csv(ptctTot, file=paste(pathtofiles,"grassland2018_TotalBySpeciesPointSurvey.csv", sep=""))
+write.csv(ptctTot, file=paste(pathtofiles,"grassland2018_TotalBySpeciesPointSurvey.csv", sep=""), row.names=FALSE)
 
 
 # make removal data file (counts by time, collapsed across distance)
@@ -184,7 +196,7 @@ ptctRem <- merge(rem.sing3, ptctRem, by.x="specpt", by.y="specpt")
 ptctRem <- merge(rem.sing4, cleandat, by.x="specpt", by.y="specpt")
 ptctRem <- merge(rem.sing5, ptctRem, by.x="specpt", by.y="specpt")
 ptctRem <- ptctRem[!(duplicated(ptctRem$specpt)),]
-write.csv(ptctRem, file=paste(pathtofiles,"grasslands2018_RemovalData.csv", sep=""))
+write.csv(ptctRem, file=paste(pathtofiles,"grasslands2018_RemovalData.csv", sep=""), row.names=FALSE)
 
 # sum counts in duplicated distance records
 cleandat$distance[which(cleandat$distance==100)] <- Inf # recode distances to detect format = max distance (50, 100, Inf)
@@ -230,7 +242,7 @@ dist50.addm <- dist50.addm[!duplicated(dist50.addm$specpt),]
 dist100.addm <- merge(dist100.add, totsing[,-c(1,2,3,17,18,20)], by.x=c("specpt"), by.y=c("specpt"), all.x=TRUE, all.y=FALSE)
 dist100.addm <- dist100.addm[!duplicated(dist100.addm$specpt),]
 ptctDist <- rbind(totsing, dist0.addm, dist50.addm, dist100.addm)
-write.csv(ptctDist, file=paste(pathtofiles,"grasslands2018_DistanceData.csv", sep=""))
+write.csv(ptctDist, file=paste(pathtofiles,"grasslands2018_DistanceData.csv", sep=""), row.names=FALSE)
 
 
 ##############################################################################################
@@ -248,9 +260,9 @@ ptctRem <- merge(ptctRem, PACommGroups, by.x="pa_comm_code", by.y="pa_comm_code"
 ptctDist <- merge(ptctDist, PACommGroups, by.x="pa_comm_code", by.y="pa_comm_code", all.x=T)
 
 # export to CSV
-write.csv(ptctTot, file=paste(pathtofiles,"WPAData_TotalBySpeciesPointSurvey.csv", sep=""))
-write.csv(ptctRem, file=paste(pathtofiles,"WPAData_RemovalData.csv", sep=""))
-write.csv(ptctDist, file=paste(pathtofiles,"WPAData_DistanceData.csv", sep=""))
+write.csv(ptctTot, file=paste(pathtofiles,"WPAData_TotalBySpeciesPointSurvey.csv", sep=""), row.names=FALSE)
+write.csv(ptctRem, file=paste(pathtofiles,"WPAData_RemovalData.csv", sep=""), row.names=FALSE)
+write.csv(ptctDist, file=paste(pathtofiles,"WPAData_DistanceData.csv", sep=""), row.names=FALSE)
 
 
 
@@ -388,7 +400,7 @@ ptctTot.spp$DetOffset <- corrections2offset(det.offset)
 summary(ptctTot.spp$DetOffset)
 # offsets should range from ~ -1 to maybe 1.5-2 but usually <1
 
-write.csv(ptctTot.spp[,c("TotSing", "pt_id","DetOffset")], file=paste(pathtofiles,"DetOffset_HESP_2015.csv", sep=""))
+write.csv(ptctTot.spp[,c("TotSing", "pt_id","DetOffset")], file=paste(pathtofiles,"DetOffset_HESP_2015.csv", sep=""), row.names=FALSE)
 
 
 
