@@ -32,6 +32,10 @@ vignettes/*.pdf
 *.utf8.md
 *.knit.md
 
+# folders
+/old/
+/grassland_data2018/
+
 # =========================
 # Operating System Files
 # =========================
@@ -58,3 +62,7 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+*.RData
+grassland_data2018/grassland2018_TotalBySpeciesPointSurvey.csv
+*.csv
+old/GrasslandBirds.Rproj
