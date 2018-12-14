@@ -2,29 +2,42 @@
 ## CUSTOM CODE FOR ANALYZING PENNSYLVANIA WILDS POINT COUNT DATA
 ## AUTHOR: Nicole Michel, National Audubon Society
 ## DATE: February 2016
+## Updated December 2018 by Christopher Tracey, PNHP
 ## 
 ## SOME CODE ORIGINALLY MODIFIED FROM SOLYMOS ET AL. 2013 MEE
 ###################################################################################################
 
-
-## @@@@ USER INPUT REQUIRED HERE @@@@
-# set working directory (where your scripts are stored)
-setwd("C:/Users/dyeany/Documents/R/1409_Grasslands")
+if (!requireNamespace("plyr", quietly=TRUE)) install.packages("plyr")
+require(plyr)
+if (!requireNamespace("here", quietly=TRUE)) install.packages("here")
+require(here)
+if (!requireNamespace("detect", quietly=TRUE)) install.packages("detect")
+require(detect)
+if (!requireNamespace("StreamMetabolism", quietly=TRUE)) install.packages("StreamMetabolism")
+require(StreamMetabolism)
+if (!requireNamespace("lme4", quietly=TRUE)) install.packages("lme4")
+require(lme4)
+if (!requireNamespace("AICcmodavg", quietly=TRUE)) install.packages("AICcmodavg")
+require(AICcmodavg)
+if (!requireNamespace("multcomp", quietly=TRUE)) install.packages("multcomp")
+require(multcomp)
+if (!requireNamespace("ggplot2", quietly=TRUE)) install.packages("ggplot2")
+require(ggplot2)
+if (!requireNamespace("glmmADMB", quietly=TRUE)) install.packages("glmmADMB")
+require(glmmADMB)
 
 # read in source code with functions
-source("WesternPA_Density_Functions.R")
+source(here("WesternPA_Density_Functions.R"))
 
 ## @@@@ USER INPUT REQUIRED HERE @@@@
 # define the path to where your input and output data files are stored
-pathtofiles <- "C:/Users/dyeany/Documents/R/1409_Grasslands/grassland_data2018/"
-
-library(detect)
+filedirectory <- "grassland_data2018"
 
 ##############################################################################################
 ## read in data and calculate covariates (Jdate, time since local sunrise) 
 ## @@@@ ONLY RUN THIS SECTION ON NEW DATASETS. COMPLETE FOR 2015!! @@@@
 
-rawdat <- read.csv(file=paste(pathtofiles,"bird_veg_1409_Grasslands_final.csv",sep=""), stringsAsFactors=FALSE, colClasses=c("date_start"="Date"))
+rawdat <- read.csv(here(filedirectory,"bird_veg_1409_Grasslands_final.csv"), stringsAsFactors=FALSE, colClasses=c("date_start"="Date"))
 
 ###CHECK DATE FORMAT, change to M-D-Y###
 
@@ -32,7 +45,6 @@ rawdat <- read.csv(file=paste(pathtofiles,"bird_veg_1409_Grasslands_final.csv",s
 rawdat$Jdate <- as.POSIXlt(rawdat$date_start, format="%m-%d-%Y")$yday+1
 
 # calculate local sunrise time -
-library(StreamMetabolism)
 rawdat$Sunrise <- NA
 for (i in 1:nrow(rawdat)){
   if (!is.na(rawdat$Y[i])){
@@ -41,13 +53,6 @@ for (i in 1:nrow(rawdat)){
   }
 }
 # ignore the warnings
-
-### ONLY NECESSARY IF MISSING COORDINATES ###
-# fill in mean sunrise time for records lacking lat/longs
-#jdlist <- unique(rawdat$Jdate[which(is.na(rawdat$Y))])
-#for (i in 1:length(jdlist)){
-#  rawdat$Sunrise[which(is.na(rawdat$Y) & rawdat$Jdate==jdlist[i])] <- mean(rawdat$Sunrise[which(!is.na(rawdat$Y) & rawdat$Jdate==jdlist[i])])
-#}
 
 # convert start time to decimal time
 rawdat$starttime <- as.numeric(substr(rawdat$time_start, 0, nchar(rawdat$time_start)-2)) + as.numeric(substr(rawdat$time_start, nchar(rawdat$time_start)-1, nchar(rawdat$time_start)))/60
@@ -60,8 +65,6 @@ rawdat$tslr <- rawdat$starttime - rawdat$Sunrise
 ## clean the data, remove unidentified species, keep only the survey visit with the highest count,
 ##   add zeroes for all species-point combinations where not observed
 ## @@@@ ONLY RUN THIS SECTION ON NEW DATASETS. @@@@
-
-library(plyr)
 
 # get unique list of points and survey visits (unique_id)
 UniqPtsVisits <- unique(rawdat$unique_id)
@@ -77,7 +80,7 @@ rawdat <- rawdat[which(!is.na(rawdat$distance)),]
 speclist <- unique(rawdat$elem_name)
 
 # replace any lowercase letters in elem_name field with uppercase
-#rawdat$elem_name[which(rawdat$elem_name=="HESP")] <- "HESP"
+rawdat$elem_name <- toupper(rawdat$elem_name)
 
 # remove records of unidentified bird (UNBI), unidentified woodpecker (UNWO)
 rawdat <- rawdat[which(!(rawdat$elem_name=="UNBI")),]
@@ -403,8 +406,6 @@ write.csv(ptctTot.spp[,c("TotSing", "pt_id","DetOffset")], file=paste(pathtofile
 #############################################################################################
 ### ENTER OFFSET INTO POISSON GLMMs
 
-library(lme4)
-
 # If you've closed your R session since you ran the models and calculated offsets, run this code to 
 #  read the data and offsets back in and compile the data to run the GLMMs
 rm(list=ls(pattern="GLMM"))
@@ -427,8 +428,6 @@ GLMM.Site <- glmer(TotSing ~ SiteCode + (1|SiteCode), data=ptctTot.spp, family=p
 GLMM.Null <- glmer(TotSing ~ 1 + (1|SiteCode), data=ptctTot.spp, family=poisson, offset=DetOffset)
 
 # produce model table
-library(AICcmodavg)
-
 candset.glmm <- list("GLMM.ForestGroup"=GLMM.ForestGroup, "GLMM.ForestType"=GLMM.ForestType, "GLMM.PACommType"=GLMM.PACommType, 
                      "GLMM.PACommGroup"=GLMM.PACommGroup, "GLMM.Site"=GLMM.Site, "GLMM.Null"=GLMM.Null)
 GLMM.aictab <- aictab(cand.set=candset.glmm, second.ord=T)
@@ -456,7 +455,6 @@ overdisp_fun(GLMM.ForestType)
 anova(GLMM.ForestGroup, GLMM.Null)
 
 # run post-hoc pairwise comparisons of forest groups
-library(multcomp)
 summary(glht(GLMM.ForestGroup, linfct=mcp(for_group_code="Tukey")))
 
 ### PLOT PREDICTED DENSITIES AND CIs FOR FOREST GROUPS
@@ -481,7 +479,6 @@ newdat.fg$CIhi[which(is.na(newdat.fg$CIhi))] <- newdat.fg$y[which(is.na(newdat.f
 newdat.fg$CIhi[which(newdat.fg$CIhi==Inf)] <- newdat.fg$y[which(newdat.fg$CIhi==Inf)]
 
 # plot density and CIs for forest groups
-library(ggplot2)
 ymax <- (max(newdat.fg$CIhi)*1.1)
 ymin <- (min(newdat.fg$CIlo)*0.9)
 if (ymax <=0){
@@ -753,7 +750,7 @@ Plotnewdat.site
 ##############################################################
 ## NEGATIVE BINOMIAL GLMMs - only use if overdispersion test for Poisson models is significant
 
-library(glmmADMB)
+
 
 ####### BUILD GLMM/GLM MODEL SET - FOREST GROUP, FOREST COMMUNITY, SITE AND NULL MIXED AND FIXED EFFECT MODELS
 # fit non-zero-inflated NB models
@@ -804,7 +801,6 @@ overdisp_fun(GLMM.NB.PACommGroup)
 anova(GLMM.NB.ForestGroup, GLMM.NB.Null)
 
 # run post-hoc pairwise comparisons of forest groups
-library(multcomp)
 summary(glht(GLMM.NB.ForestGroup, linfct=mcp(for_group_code="Tukey")))
 
 ### PLOT PREDICTED DENSITIES AND CIs FOR FOREST GROUPS
@@ -1104,7 +1100,6 @@ Plotnewdat.site
 anova(GLMM.NB.ForestGroup.ZI, GLMM.NB.Null.ZI)
 
 # run post-hoc pairwise comparisons of forest groups
-library(multcomp)
 summary(glht(GLMM.NB.ForestGroup.ZI, linfct=mcp(for_group_code="Tukey")))
 
 ### PLOT PREDICTED DENSITIES AND CIs FOR FOREST GROUPS

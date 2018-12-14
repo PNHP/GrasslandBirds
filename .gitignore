@@ -66,3 +66,4 @@ $RECYCLE.BIN/
 grassland_data2018/grassland2018_TotalBySpeciesPointSurvey.csv
 *.csv
 old/GrasslandBirds.Rproj
+.Rproj.user
